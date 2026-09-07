@@ -475,10 +475,48 @@ Manual invoice generation (if needed outside standard booking workflow).
 
 ---
 
-## 13. Time Slots (`/time-slots`)
-Reference lookup for standard operating slots.
+### `GET /time-slots/availability`
+Calculates dynamic time slot availability for a specific booking date. Considers service duration, buffer time, bathroom count, subscription plan rules, operating hours, and filters out already-booked slots for that date.
+
+- **Endpoint**: `/api/time-slots/availability` (Aliases: `/api/slots/availability`, `/api/bookings/availability`)
+- **HTTP Method**: `GET` (also supports `POST`)
+- **Auth**: None / Optional (Public endpoint for booking form and telecallers)
+- **Required Query Parameters**:
+  - `bookingDate`: Target date (`YYYY-MM-DD`, e.g., `2026-09-10`)
+- **Optional Query Parameters**:
+  - `bathroomCount`: Number of bathrooms (e.g., `1`, `2`, `3`). Scales service duration dynamically (default: 60 mins per bathroom).
+  - `bathroomCountId`: BathroomCount ObjectId reference.
+  - `serviceDuration`: Explicit service duration in minutes (e.g., `30`, `60`, `120`).
+  - `serviceDurationId`: ServiceDuration ObjectId reference.
+  - `bufferDuration`: Explicit buffer / cleaning duration in minutes (e.g., `30`). Default: 30 minutes.
+  - `subscriptionTypeId`: SubscriptionType ObjectId reference or plan name.
+- **Request Example**:
+  `GET /api/time-slots/availability?bookingDate=2026-09-10&bathroomCount=2&bufferDuration=30`
+- **Response Shape (200 OK)**:
+```json
+{
+  "bookingDate": "2026-09-10",
+  "slots": [
+    {
+      "startTime": "09:00",
+      "endTime": "10:00",
+      "status": "active"
+    },
+    {
+      "startTime": "10:00",
+      "endTime": "11:00",
+      "status": "active"
+    }
+  ]
+}
+```
+*Note: Already-booked slots for the requested date are automatically excluded from the returned slots array. The same slot on any other date remains available if unbooked.*
+- **Error Responses**:
+  - `400 Bad Request`: `{ "message": "bookingDate is required (format: YYYY-MM-DD)" }` or `{ "message": "Invalid bookingDate format. Please use YYYY-MM-DD." }`
 
 ### `GET /time-slots`
+Reference lookup for standard operating slots.
+
 - **Response Shape (200 OK)**:
 ```json
 [
@@ -624,3 +662,28 @@ Adds a new pricing row. Pass `"deactivatePrevious": true` to automatically deact
 }
 ```
 - **Response Shape (201 Created)**: Created pricing row.
+
+---
+
+## 19. Audit Logs (Internal System Architecture)
+
+The system maintains dedicated internal audit logs located under `models/auditlogs/` for core business operations:
+
+- `models/auditlogs/userLog.js` (`UserLog`)
+- `models/auditlogs/roleLog.js` (`RoleLog`)
+- `models/auditlogs/customerLog.js` (`CustomerLog`)
+- `models/auditlogs/bookingLog.js` (`BookingLog`)
+- `models/auditlogs/subscriptionLog.js` (`SubscriptionLog` / `SubscriptionTypeLog`)
+
+### Audit Log Schema Structure
+Every audit log records:
+- `operation`: `'CREATE' | 'UPDATE' | 'DELETE'`
+- `userReference`: ObjectId (ref: `'User'`, the user who triggered the action, or `null` for public actions)
+- `recordReference`: ObjectId (the target document ID)
+- `details`: Mixed (metadata, description, updated fields list)
+- `previousValue`: Mixed (snapshot of record prior to mutation, populated on `UPDATE` and `DELETE`)
+- `newValue`: Mixed (snapshot of record after mutation, populated on `CREATE` and `UPDATE`)
+- `createdAt`: Date (timestamp of operation via `{ timestamps: { createdAt: true, updatedAt: false } }`)
+
+*Note: Audit logs are internal-only for security and auditing; they are not exposed via public API endpoints.*
+

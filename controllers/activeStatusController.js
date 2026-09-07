@@ -39,10 +39,10 @@ exports.createActiveStatus = async (req, res) => {
     const savedStatus = await status.save();
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'create',
       collectionName: 'activeStatuses',
-      recordReference: savedStatus._id,
+      recordId: savedStatus._id,
     });
 
     res.status(201).json(savedStatus);
@@ -66,10 +66,10 @@ exports.updateActiveStatus = async (req, res) => {
     }
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'update',
       collectionName: 'activeStatuses',
-      recordReference: status._id,
+      recordId: status._id,
     });
 
     res.status(200).json(status);
@@ -87,10 +87,10 @@ exports.deleteActiveStatus = async (req, res) => {
     }
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'delete',
       collectionName: 'activeStatuses',
-      recordReference: status._id,
+      recordId: status._id,
     });
 
     res.status(200).json({ message: 'Active status deleted successfully' });

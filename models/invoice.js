@@ -1,19 +1,26 @@
 const mongoose = require('mongoose');
+const { ulid } = require('ulid');
 
-const invoiceSchema = new mongoose.Schema(
-  {
+const invoiceSchema = new mongoose.Schema({
+
+    invoiceId: {
+      type: String,
+      required: true,
+      unique: true,
+      default: () => 'INV_' + ulid(),
+    },
     invoiceNumber: {
       type: String,
       required: true,
       unique: true,
       trim: true,
     },
-    customerReference: {
+    customerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Customer',
       required: true,
     },
-    bookingReference: {
+    bookingId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Booking',
       required: true,

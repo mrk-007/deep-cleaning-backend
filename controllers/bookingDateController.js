@@ -40,10 +40,10 @@ exports.createBookingDate = async (req, res) => {
     const savedDate = await bookingDate.save();
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'create',
       collectionName: 'bookingDates',
-      recordReference: savedDate._id,
+      recordId: savedDate._id,
     });
 
     res.status(201).json(savedDate);
@@ -71,10 +71,10 @@ exports.updateBookingDate = async (req, res) => {
     }
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'update',
       collectionName: 'bookingDates',
-      recordReference: date._id,
+      recordId: date._id,
     });
 
     res.status(200).json(date);
@@ -92,10 +92,10 @@ exports.deleteBookingDate = async (req, res) => {
     }
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'delete',
       collectionName: 'bookingDates',
-      recordReference: date._id,
+      recordId: date._id,
     });
 
     res.status(200).json({ message: 'Booking date deleted successfully' });

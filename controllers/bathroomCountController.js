@@ -6,10 +6,10 @@ exports.getAllBathroomCounts = async (req, res) => {
   try {
     const filter = {};
     if (req.query.activeStatusId) {
-      filter.activeStatusReference = req.query.activeStatusId;
+      filter.activeStatusId = req.query.activeStatusId;
     }
     const counts = await BathroomCount.find(filter)
-      .populate('activeStatusReference')
+      .populate('activeStatusId')
       .sort({ bathroomCount: 1 });
     res.status(200).json(counts);
   } catch (error) {
@@ -20,7 +20,7 @@ exports.getAllBathroomCounts = async (req, res) => {
 // Get single bathroom count by ID
 exports.getBathroomCountById = async (req, res) => {
   try {
-    const count = await BathroomCount.findById(req.params.id).populate('activeStatusReference');
+    const count = await BathroomCount.findById(req.params.id).populate('activeStatusId');
     if (!count) {
       return res.status(404).json({ message: 'Bathroom count not found' });
     }
@@ -33,23 +33,23 @@ exports.getBathroomCountById = async (req, res) => {
 // Create a bathroom count
 exports.createBathroomCount = async (req, res) => {
   try {
-    const { bathroomCount, activeStatusReference } = req.body;
+    const { bathroomCount, activeStatusId } = req.body;
     if (bathroomCount === undefined || bathroomCount === null) {
       return res.status(400).json({ message: 'bathroomCount is required' });
     }
 
     const newCount = new BathroomCount({
       bathroomCount,
-      activeStatusReference: activeStatusReference || null,
+      activeStatusId: activeStatusId || null,
       createdBy: req.user ? req.user.userId : null,
     });
     const savedCount = await newCount.save();
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'create',
       collectionName: 'bathroomCounts',
-      recordReference: savedCount._id,
+      recordId: savedCount._id,
     });
 
     res.status(201).json(savedCount);
@@ -58,29 +58,29 @@ exports.createBathroomCount = async (req, res) => {
   }
 };
 
-// Update a bathroom count (count or activeStatusReference)
+// Update a bathroom count (count or activeStatusId)
 exports.updateBathroomCount = async (req, res) => {
   try {
-    const { bathroomCount, activeStatusReference } = req.body;
+    const { bathroomCount, activeStatusId } = req.body;
     const updateData = {};
     if (bathroomCount !== undefined) updateData.bathroomCount = bathroomCount;
-    if (activeStatusReference !== undefined) updateData.activeStatusReference = activeStatusReference;
+    if (activeStatusId !== undefined) updateData.activeStatusId = activeStatusId;
 
     const count = await BathroomCount.findByIdAndUpdate(
       req.params.id,
       updateData,
       { new: true, runValidators: true }
-    ).populate('activeStatusReference');
+    ).populate('activeStatusId');
 
     if (!count) {
       return res.status(404).json({ message: 'Bathroom count not found' });
     }
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'update',
       collectionName: 'bathroomCounts',
-      recordReference: count._id,
+      recordId: count._id,
     });
 
     res.status(200).json(count);
@@ -98,10 +98,10 @@ exports.deleteBathroomCount = async (req, res) => {
     }
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'delete',
       collectionName: 'bathroomCounts',
-      recordReference: count._id,
+      recordId: count._id,
     });
 
     res.status(200).json({ message: 'Bathroom count deleted successfully' });

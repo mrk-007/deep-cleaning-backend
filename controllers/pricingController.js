@@ -10,9 +10,9 @@ exports.getAllPricing = async (req, res) => {
     }
 
     const pricings = await Pricing.find(filter)
-      .populate('serviceDurationReference')
-      .populate('bathroomCountReference')
-      .populate('activeStatusReference')
+      .populate('serviceDurationId')
+      .populate('bathroomCountId')
+      .populate('activeStatusId')
       .sort({ createdAt: -1 });
 
     res.status(200).json(pricings);
@@ -25,9 +25,9 @@ exports.getAllPricing = async (req, res) => {
 exports.getPricingById = async (req, res) => {
   try {
     const pricing = await Pricing.findById(req.params.id)
-      .populate('serviceDurationReference')
-      .populate('bathroomCountReference')
-      .populate('activeStatusReference');
+      .populate('serviceDurationId')
+      .populate('bathroomCountId')
+      .populate('activeStatusId');
 
     if (!pricing) {
       return res.status(404).json({ message: 'Pricing record not found' });
@@ -42,17 +42,17 @@ exports.getPricingById = async (req, res) => {
 exports.createPricing = async (req, res) => {
   try {
     const {
-      serviceDurationReference,
-      bathroomCountReference,
+      serviceDurationId,
+      bathroomCountId,
       price,
       effectiveFrom,
-      activeStatusReference,
+      activeStatusId,
       deactivatePrevious,
     } = req.body;
 
-    if (!serviceDurationReference || !bathroomCountReference || price === undefined) {
+    if (!serviceDurationId || !bathroomCountId || price === undefined) {
       return res.status(400).json({
-        message: 'serviceDurationReference, bathroomCountReference, and price are required',
+        message: 'serviceDurationId, bathroomCountId, and price are required',
       });
     }
 
@@ -60,8 +60,8 @@ exports.createPricing = async (req, res) => {
     if (deactivatePrevious) {
       await Pricing.updateMany(
         {
-          serviceDurationReference,
-          bathroomCountReference,
+          serviceDurationId,
+          bathroomCountId,
           isActive: true,
         },
         { isActive: false }
@@ -69,22 +69,22 @@ exports.createPricing = async (req, res) => {
     }
 
     const pricing = new Pricing({
-      serviceDurationReference,
-      bathroomCountReference,
+      serviceDurationId,
+      bathroomCountId,
       price,
       isActive: true,
       effectiveFrom: effectiveFrom || new Date(),
-      activeStatusReference: activeStatusReference || null,
+      activeStatusId: activeStatusId || null,
       createdBy: req.user ? req.user.userId : null,
     });
 
     const savedPricing = await pricing.save();
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'create',
       collectionName: 'pricing',
-      recordReference: savedPricing._id,
+      recordId: savedPricing._id,
     });
 
     res.status(201).json(savedPricing);
@@ -100,19 +100,19 @@ exports.updatePricing = async (req, res) => {
       new: true,
       runValidators: true,
     })
-      .populate('serviceDurationReference')
-      .populate('bathroomCountReference')
-      .populate('activeStatusReference');
+      .populate('serviceDurationId')
+      .populate('bathroomCountId')
+      .populate('activeStatusId');
 
     if (!pricing) {
       return res.status(404).json({ message: 'Pricing record not found' });
     }
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'update',
       collectionName: 'pricing',
-      recordReference: pricing._id,
+      recordId: pricing._id,
     });
 
     res.status(200).json(pricing);
@@ -130,10 +130,10 @@ exports.deletePricing = async (req, res) => {
     }
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'delete',
       collectionName: 'pricing',
-      recordReference: pricing._id,
+      recordId: pricing._id,
     });
 
     res.status(200).json({ message: 'Pricing record deleted successfully' });

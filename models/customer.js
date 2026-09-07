@@ -1,7 +1,14 @@
 const mongoose = require('mongoose');
+const { ulid } = require('ulid');
 
-const customerSchema = new mongoose.Schema(
-  {
+const customerSchema = new mongoose.Schema({
+
+    customerId: {
+      type: String,
+      required: true,
+      unique: true,
+      default: () => 'CUS_' + ulid(),
+    },
     name: {
       type: String,
       required: true,
@@ -47,7 +54,7 @@ const customerSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
-    activeStatusReference: {
+    activeStatusId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'ActiveStatus',
       default: null,

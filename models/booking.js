@@ -1,43 +1,50 @@
 const mongoose = require('mongoose');
+const { ulid } = require('ulid');
 
-const bookingSchema = new mongoose.Schema(
-  {
-    customerReference: {
+const bookingSchema = new mongoose.Schema({
+
+    bookingId: {
+      type: String,
+      required: true,
+      unique: true,
+      default: () => 'BKG_' + ulid(),
+    },
+    customerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Customer',
       required: true,
     },
-    bathroomCountReference: {
+    bathroomCountId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'BathroomCount',
       default: null,
     },
-    pricingReference: {
+    pricingId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Pricing',
       default: null,
     },
-    serviceDurationReference: {
+    serviceDurationId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'ServiceDuration',
       default: null,
     },
-    serviceFrequencyReference: {
+    serviceFrequencyId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'ServiceFrequency',
       default: null,
     },
-    subscriptionTypeReference: {
+    subscriptionTypeId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'SubscriptionType',
       default: null,
     },
-    timeSlotReference: {
+    timeSlotId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'TimeSlot',
       default: null,
     },
-    bookingDateReference: {
+    bookingDateId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'BookingDate',
       default: null,
@@ -50,12 +57,12 @@ const bookingSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
-    paymentMethodReference: {
+    paymentMethodId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'PaymentMethod',
       default: null,
     },
-    accountReference: {
+    paymentAccountId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'PaymentAccount',
       default: null,
@@ -69,7 +76,7 @@ const bookingSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    workStatusReference: {
+    workStatusId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'WorkStatus',
       default: null,

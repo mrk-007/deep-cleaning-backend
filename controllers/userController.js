@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const AuditLog = require('../models/auditLog');
+const UserLog = require('../models/auditlogs/userLog');
 
 // Get all users
 exports.getAllUsers = async (req, res) => {
@@ -9,10 +10,10 @@ exports.getAllUsers = async (req, res) => {
     const users = await User.find()
       .select('-passwordHash')
       .populate({
-        path: 'roleReference',
-        populate: { path: 'permissionReferences' },
+        path: 'roleId',
+        populate: { path: 'permissionIds' },
       })
-      .populate('activeStatusReference')
+      .populate('activeStatusId')
       .sort({ createdAt: -1 });
     res.status(200).json(users);
   } catch (error) {
@@ -26,10 +27,10 @@ exports.getUserById = async (req, res) => {
     const user = await User.findById(req.params.id)
       .select('-passwordHash')
       .populate({
-        path: 'roleReference',
-        populate: { path: 'permissionReferences' },
+        path: 'roleId',
+        populate: { path: 'permissionIds' },
       })
-      .populate('activeStatusReference');
+      .populate('activeStatusId');
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -43,7 +44,7 @@ exports.getUserById = async (req, res) => {
 // Register / Create user
 exports.createUser = async (req, res) => {
   try {
-    const { userName, email, password, roleReference, activeStatusReference } = req.body;
+    const { userName, email, password, roleId, activeStatusId } = req.body;
     if (!userName || !email || !password) {
       return res.status(400).json({ message: 'userName, email, and password are required' });
     }
@@ -60,21 +61,22 @@ exports.createUser = async (req, res) => {
       userName,
       email: email.toLowerCase().trim(),
       passwordHash,
-      roleReference: roleReference || null,
-      activeStatusReference: activeStatusReference || null,
+      roleId: roleId || null,
+      activeStatusId: activeStatusId || null,
       createdBy: req.user ? req.user.userId : null,
     });
     const savedUser = await user.save();
 
-    await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
-      operation: 'create',
-      collectionName: 'users',
-      recordReference: savedUser._id,
-    });
-
     const userResponse = savedUser.toObject();
     delete userResponse.passwordHash;
+
+    await UserLog.create({
+      operation: 'CREATE',
+      actionBy: req.user ? req.user.userId : null,
+      recordId: savedUser._id,
+      details: { action: 'User registered', email: savedUser.email },
+      newValue: userResponse,
+    });
 
     res.status(201).json(userResponse);
   } catch (error) {
@@ -91,8 +93,8 @@ exports.login = async (req, res) => {
     }
 
     const user = await User.findOne({ email: email.toLowerCase().trim() })
-      .populate('roleReference')
-      .populate('activeStatusReference');
+      .populate('roleId')
+      .populate('activeStatusId');
 
     if (!user) {
       return res.status(400).json({ message: 'Invalid email or password' });
@@ -108,7 +110,7 @@ exports.login = async (req, res) => {
         userId: user._id,
         userName: user.userName,
         email: user.email,
-        role: user.roleReference ? user.roleReference.roleName : null,
+        role: user.roleId ? user.roleId.roleName : null,
       },
       process.env.JWT_SECRET || 'supersecretjwtkey_jolly_home_needs_2026',
       { expiresIn: '7d' }
@@ -130,16 +132,21 @@ exports.login = async (req, res) => {
 // Update user
 exports.updateUser = async (req, res) => {
   try {
-    const { userName, email, password, roleReference, activeStatusReference } = req.body;
+    const { userName, email, password, roleId, activeStatusId } = req.body;
     const updateData = {};
 
     if (userName) updateData.userName = userName;
     if (email) updateData.email = email.toLowerCase().trim();
-    if (roleReference !== undefined) updateData.roleReference = roleReference;
-    if (activeStatusReference !== undefined) updateData.activeStatusReference = activeStatusReference;
+    if (roleId !== undefined) updateData.roleId = roleId;
+    if (activeStatusId !== undefined) updateData.activeStatusId = activeStatusId;
     if (password) {
       const salt = await bcrypt.genSalt(10);
       updateData.passwordHash = await bcrypt.hash(password, salt);
+    }
+
+    const previousUser = await User.findById(req.params.id).select('-passwordHash');
+    if (!previousUser) {
+      return res.status(404).json({ message: 'User not found' });
     }
 
     const user = await User.findByIdAndUpdate(req.params.id, updateData, {
@@ -147,18 +154,16 @@ exports.updateUser = async (req, res) => {
       runValidators: true,
     })
       .select('-passwordHash')
-      .populate('roleReference')
-      .populate('activeStatusReference');
+      .populate('roleId')
+      .populate('activeStatusId');
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
-      operation: 'update',
-      collectionName: 'users',
-      recordReference: user._id,
+    await UserLog.create({
+      operation: 'UPDATE',
+      actionBy: req.user ? req.user.userId : null,
+      recordId: user._id,
+      details: { updatedFields: Object.keys(updateData).filter((k) => k !== 'passwordHash') },
+      previousValue: previousUser.toObject(),
+      newValue: user.toObject(),
     });
 
     res.status(200).json(user);
@@ -170,16 +175,18 @@ exports.updateUser = async (req, res) => {
 // Delete user
 exports.deleteUser = async (req, res) => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);
+    const user = await User.findByIdAndDelete(req.params.id).select('-passwordHash');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
-      operation: 'delete',
-      collectionName: 'users',
-      recordReference: user._id,
+    await UserLog.create({
+      operation: 'DELETE',
+      actionBy: req.user ? req.user.userId : null,
+      recordId: user._id,
+      details: { action: 'User deleted' },
+      previousValue: user.toObject(),
+      newValue: null,
     });
 
     res.status(200).json({ message: 'User deleted successfully' });

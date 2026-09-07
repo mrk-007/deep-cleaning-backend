@@ -6,10 +6,10 @@ exports.getAllServiceDurations = async (req, res) => {
   try {
     const filter = {};
     if (req.query.activeStatusId) {
-      filter.activeStatusReference = req.query.activeStatusId;
+      filter.activeStatusId = req.query.activeStatusId;
     }
     const durations = await ServiceDuration.find(filter)
-      .populate('activeStatusReference')
+      .populate('activeStatusId')
       .sort({ durationMinutes: 1 });
     res.status(200).json(durations);
   } catch (error) {
@@ -20,7 +20,7 @@ exports.getAllServiceDurations = async (req, res) => {
 // Get single duration by ID
 exports.getServiceDurationById = async (req, res) => {
   try {
-    const duration = await ServiceDuration.findById(req.params.id).populate('activeStatusReference');
+    const duration = await ServiceDuration.findById(req.params.id).populate('activeStatusId');
     if (!duration) {
       return res.status(404).json({ message: 'Service duration not found' });
     }
@@ -33,23 +33,23 @@ exports.getServiceDurationById = async (req, res) => {
 // Create a service duration
 exports.createServiceDuration = async (req, res) => {
   try {
-    const { durationMinutes, activeStatusReference } = req.body;
+    const { durationMinutes, activeStatusId } = req.body;
     if (durationMinutes === undefined || durationMinutes === null) {
       return res.status(400).json({ message: 'durationMinutes is required' });
     }
 
     const duration = new ServiceDuration({
       durationMinutes,
-      activeStatusReference: activeStatusReference || null,
+      activeStatusId: activeStatusId || null,
       createdBy: req.user ? req.user.userId : null,
     });
     const savedDuration = await duration.save();
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'create',
       collectionName: 'serviceDurations',
-      recordReference: savedDuration._id,
+      recordId: savedDuration._id,
     });
 
     res.status(201).json(savedDuration);
@@ -58,29 +58,29 @@ exports.createServiceDuration = async (req, res) => {
   }
 };
 
-// Update a service duration (durationMinutes or activeStatusReference)
+// Update a service duration (durationMinutes or activeStatusId)
 exports.updateServiceDuration = async (req, res) => {
   try {
-    const { durationMinutes, activeStatusReference } = req.body;
+    const { durationMinutes, activeStatusId } = req.body;
     const updateData = {};
     if (durationMinutes !== undefined) updateData.durationMinutes = durationMinutes;
-    if (activeStatusReference !== undefined) updateData.activeStatusReference = activeStatusReference;
+    if (activeStatusId !== undefined) updateData.activeStatusId = activeStatusId;
 
     const duration = await ServiceDuration.findByIdAndUpdate(
       req.params.id,
       updateData,
       { new: true, runValidators: true }
-    ).populate('activeStatusReference');
+    ).populate('activeStatusId');
 
     if (!duration) {
       return res.status(404).json({ message: 'Service duration not found' });
     }
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'update',
       collectionName: 'serviceDurations',
-      recordReference: duration._id,
+      recordId: duration._id,
     });
 
     res.status(200).json(duration);
@@ -98,10 +98,10 @@ exports.deleteServiceDuration = async (req, res) => {
     }
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'delete',
       collectionName: 'serviceDurations',
-      recordReference: duration._id,
+      recordId: duration._id,
     });
 
     res.status(200).json({ message: 'Service duration deleted successfully' });

@@ -1,7 +1,14 @@
 const mongoose = require('mongoose');
+const { ulid } = require('ulid');
 
-const timeSlotSchema = new mongoose.Schema(
-  {
+const timeSlotSchema = new mongoose.Schema({
+
+    timeSlotId: {
+      type: String,
+      required: true,
+      unique: true,
+      default: () => 'TSL_' + ulid(),
+    },
     startTime: {
       type: String,
       required: true,
@@ -16,7 +23,7 @@ const timeSlotSchema = new mongoose.Schema(
       type: Number,
       default: 0, // in minutes
     },
-    activeStatusReference: {
+    activeStatusId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'ActiveStatus',
       default: null,

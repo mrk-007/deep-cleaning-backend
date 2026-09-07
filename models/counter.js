@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { ulid } = require('ulid');
 
 const counterSchema = new mongoose.Schema(
   {

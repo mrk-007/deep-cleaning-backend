@@ -1,26 +1,28 @@
 const mongoose = require('mongoose');
 const { ulid } = require('ulid');
 
-const auditLogSchema = new mongoose.Schema(
-  {
-    userId: {
+const bookingLogSchema = new mongoose.Schema({
+
+    auditLogId: {
+      type: String,
+      required: true,
+      unique: true,
+      default: () => 'AUD_' + ulid(),
+    },
+    operation: {
+      type: String,
+      enum: ['CREATE', 'UPDATE', 'DELETE'],
+      required: true,
+    },
+    actionBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       default: null,
     },
-    operation: {
-      type: String,
-      enum: ['create', 'update', 'delete', 'CREATE', 'UPDATE', 'DELETE'],
-      required: true,
-    },
-    collectionName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    recordId: {
+    bookingId: {
       type: mongoose.Schema.Types.ObjectId,
-      default: null,
+      ref: 'Booking',
+      required: true,
     },
     details: {
       type: mongoose.Schema.Types.Mixed,
@@ -40,4 +42,4 @@ const auditLogSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model('AuditLog', auditLogSchema);
+module.exports = mongoose.model('BookingLog', bookingLogSchema);

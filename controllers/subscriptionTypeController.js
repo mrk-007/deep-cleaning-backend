@@ -1,15 +1,16 @@
 const SubscriptionType = require('../models/subscriptionType');
 const AuditLog = require('../models/auditLog');
+const SubscriptionLog = require('../models/auditlogs/subscriptionLog');
 
 // Get all subscription types (with optional ?activeStatusId= filter)
 exports.getAllSubscriptionTypes = async (req, res) => {
   try {
     const filter = {};
     if (req.query.activeStatusId) {
-      filter.activeStatusReference = req.query.activeStatusId;
+      filter.activeStatusId = req.query.activeStatusId;
     }
     const subscriptions = await SubscriptionType.find(filter)
-      .populate('activeStatusReference')
+      .populate('activeStatusId')
       .sort({ createdAt: -1 });
     res.status(200).json(subscriptions);
   } catch (error) {
@@ -20,7 +21,7 @@ exports.getAllSubscriptionTypes = async (req, res) => {
 // Get single subscription type by ID
 exports.getSubscriptionTypeById = async (req, res) => {
   try {
-    const subscription = await SubscriptionType.findById(req.params.id).populate('activeStatusReference');
+    const subscription = await SubscriptionType.findById(req.params.id).populate('activeStatusId');
     if (!subscription) {
       return res.status(404).json({ message: 'Subscription type not found' });
     }
@@ -33,23 +34,24 @@ exports.getSubscriptionTypeById = async (req, res) => {
 // Create a subscription type
 exports.createSubscriptionType = async (req, res) => {
   try {
-    const { subscriptionName, activeStatusReference } = req.body;
+    const { subscriptionName, activeStatusId } = req.body;
     if (!subscriptionName) {
       return res.status(400).json({ message: 'subscriptionName is required' });
     }
 
     const subscription = new SubscriptionType({
       subscriptionName,
-      activeStatusReference: activeStatusReference || null,
+      activeStatusId: activeStatusId || null,
       createdBy: req.user ? req.user.userId : null,
     });
     const savedSubscription = await subscription.save();
 
-    await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
-      operation: 'create',
-      collectionName: 'subscriptionTypes',
-      recordReference: savedSubscription._id,
+    await SubscriptionLog.create({
+      operation: 'CREATE',
+      actionBy: req.user ? req.user.userId : null,
+      recordId: savedSubscription._id,
+      details: { action: 'Subscription plan created', subscriptionName: savedSubscription.subscriptionName },
+      newValue: savedSubscription.toObject(),
     });
 
     res.status(201).json(savedSubscription);
@@ -58,29 +60,32 @@ exports.createSubscriptionType = async (req, res) => {
   }
 };
 
-// Update a subscription type (subscriptionName or activeStatusReference)
+// Update a subscription type (subscriptionName or activeStatusId)
 exports.updateSubscriptionType = async (req, res) => {
   try {
-    const { subscriptionName, activeStatusReference } = req.body;
+    const { subscriptionName, activeStatusId } = req.body;
+    const previousSub = await SubscriptionType.findById(req.params.id);
+    if (!previousSub) {
+      return res.status(404).json({ message: 'Subscription type not found' });
+    }
+
     const updateData = {};
     if (subscriptionName !== undefined) updateData.subscriptionName = subscriptionName;
-    if (activeStatusReference !== undefined) updateData.activeStatusReference = activeStatusReference;
+    if (activeStatusId !== undefined) updateData.activeStatusId = activeStatusId;
 
     const subscription = await SubscriptionType.findByIdAndUpdate(
       req.params.id,
       updateData,
       { new: true, runValidators: true }
-    ).populate('activeStatusReference');
+    ).populate('activeStatusId');
 
-    if (!subscription) {
-      return res.status(404).json({ message: 'Subscription type not found' });
-    }
-
-    await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
-      operation: 'update',
-      collectionName: 'subscriptionTypes',
-      recordReference: subscription._id,
+    await SubscriptionLog.create({
+      operation: 'UPDATE',
+      actionBy: req.user ? req.user.userId : null,
+      recordId: subscription._id,
+      details: { updatedFields: Object.keys(updateData) },
+      previousValue: previousSub.toObject(),
+      newValue: subscription.toObject(),
     });
 
     res.status(200).json(subscription);
@@ -97,11 +102,13 @@ exports.deleteSubscriptionType = async (req, res) => {
       return res.status(404).json({ message: 'Subscription type not found' });
     }
 
-    await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
-      operation: 'delete',
-      collectionName: 'subscriptionTypes',
-      recordReference: subscription._id,
+    await SubscriptionLog.create({
+      operation: 'DELETE',
+      actionBy: req.user ? req.user.userId : null,
+      recordId: subscription._id,
+      details: { action: 'Subscription plan deleted' },
+      previousValue: subscription.toObject(),
+      newValue: null,
     });
 
     res.status(200).json({ message: 'Subscription type deleted successfully' });

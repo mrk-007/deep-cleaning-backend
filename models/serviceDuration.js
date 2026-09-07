@@ -1,12 +1,19 @@
 const mongoose = require('mongoose');
+const { ulid } = require('ulid');
 
-const serviceDurationSchema = new mongoose.Schema(
-  {
+const serviceDurationSchema = new mongoose.Schema({
+
+    serviceDurationId: {
+      type: String,
+      required: true,
+      unique: true,
+      default: () => 'SDU_' + ulid(),
+    },
     durationMinutes: {
       type: Number,
       required: true,
     },
-    activeStatusReference: {
+    activeStatusId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'ActiveStatus',
       default: null,

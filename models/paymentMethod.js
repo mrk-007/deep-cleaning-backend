@@ -1,13 +1,20 @@
 const mongoose = require('mongoose');
+const { ulid } = require('ulid');
 
-const paymentMethodSchema = new mongoose.Schema(
-  {
+const paymentMethodSchema = new mongoose.Schema({
+
+    paymentMethodId: {
+      type: String,
+      required: true,
+      unique: true,
+      default: () => 'PMT_' + ulid(),
+    },
     paymentMethodName: {
       type: String,
       required: true,
       trim: true,
     },
-    activeStatusReference: {
+    activeStatusId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'ActiveStatus',
       default: null,

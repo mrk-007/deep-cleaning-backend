@@ -1,5 +1,6 @@
 const Customer = require('../models/customer');
 const AuditLog = require('../models/auditLog');
+const CustomerLog = require('../models/auditlogs/customerLog');
 
 // Get all customers (with optional search filter)
 exports.getAllCustomers = async (req, res) => {
@@ -18,7 +19,7 @@ exports.getAllCustomers = async (req, res) => {
     }
 
     const customers = await Customer.find(query)
-      .populate('activeStatusReference')
+      .populate('activeStatusId')
       .sort({ createdAt: -1 });
 
     res.status(200).json(customers);
@@ -30,7 +31,7 @@ exports.getAllCustomers = async (req, res) => {
 // Get single customer by ID
 exports.getCustomerById = async (req, res) => {
   try {
-    const customer = await Customer.findById(req.params.id).populate('activeStatusReference');
+    const customer = await Customer.findById(req.params.id).populate('activeStatusId');
     if (!customer) {
       return res.status(404).json({ message: 'Customer not found' });
     }
@@ -53,7 +54,7 @@ exports.createCustomer = async (req, res) => {
       landmark,
       city,
       pincode,
-      activeStatusReference,
+      activeStatusId,
     } = req.body;
 
     if (!name || !phoneNumber) {
@@ -70,17 +71,18 @@ exports.createCustomer = async (req, res) => {
       landmark: landmark || '',
       city: city || '',
       pincode: pincode || '',
-      activeStatusReference: activeStatusReference || null,
+      activeStatusId: activeStatusId || null,
       createdBy: req.user ? req.user.userId : null,
     });
 
     const savedCustomer = await customer.save();
 
-    await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
-      operation: 'create',
-      collectionName: 'customers',
-      recordReference: savedCustomer._id,
+    await CustomerLog.create({
+      operation: 'CREATE',
+      actionBy: req.user ? req.user.userId : null,
+      recordId: savedCustomer._id,
+      details: { action: 'Customer created', name: savedCustomer.name, phoneNumber: savedCustomer.phoneNumber },
+      newValue: savedCustomer.toObject(),
     });
 
     res.status(201).json(savedCustomer);
@@ -92,20 +94,23 @@ exports.createCustomer = async (req, res) => {
 // Update a customer
 exports.updateCustomer = async (req, res) => {
   try {
-    const customer = await Customer.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    }).populate('activeStatusReference');
-
-    if (!customer) {
+    const previousCustomer = await Customer.findById(req.params.id);
+    if (!previousCustomer) {
       return res.status(404).json({ message: 'Customer not found' });
     }
 
-    await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
-      operation: 'update',
-      collectionName: 'customers',
-      recordReference: customer._id,
+    const customer = await Customer.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    }).populate('activeStatusId');
+
+    await CustomerLog.create({
+      operation: 'UPDATE',
+      actionBy: req.user ? req.user.userId : null,
+      recordId: customer._id,
+      details: { updatedFields: Object.keys(req.body) },
+      previousValue: previousCustomer.toObject(),
+      newValue: customer.toObject(),
     });
 
     res.status(200).json(customer);
@@ -122,11 +127,13 @@ exports.deleteCustomer = async (req, res) => {
       return res.status(404).json({ message: 'Customer not found' });
     }
 
-    await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
-      operation: 'delete',
-      collectionName: 'customers',
-      recordReference: customer._id,
+    await CustomerLog.create({
+      operation: 'DELETE',
+      actionBy: req.user ? req.user.userId : null,
+      recordId: customer._id,
+      details: { action: 'Customer deleted' },
+      previousValue: customer.toObject(),
+      newValue: null,
     });
 
     res.status(200).json({ message: 'Customer deleted successfully' });

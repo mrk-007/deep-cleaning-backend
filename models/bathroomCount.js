@@ -1,12 +1,19 @@
 const mongoose = require('mongoose');
+const { ulid } = require('ulid');
 
-const bathroomCountSchema = new mongoose.Schema(
-  {
+const bathroomCountSchema = new mongoose.Schema({
+
+    bathroomCountId: {
+      type: String,
+      required: true,
+      unique: true,
+      default: () => 'BTH_' + ulid(),
+    },
     bathroomCount: {
       type: Number,
       required: true,
     },
-    activeStatusReference: {
+    activeStatusId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'ActiveStatus',
       default: null,

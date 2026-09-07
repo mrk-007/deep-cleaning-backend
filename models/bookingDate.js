@@ -1,7 +1,14 @@
 const mongoose = require('mongoose');
+const { ulid } = require('ulid');
 
-const bookingDateSchema = new mongoose.Schema(
-  {
+const bookingDateSchema = new mongoose.Schema({
+
+    bookingDateId: {
+      type: String,
+      required: true,
+      unique: true,
+      default: () => 'BDT_' + ulid(),
+    },
     startDateTime: {
       type: Date,
       required: true,

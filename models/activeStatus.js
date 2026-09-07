@@ -1,7 +1,14 @@
 const mongoose = require('mongoose');
+const { ulid } = require('ulid');
 
-const activeStatusSchema = new mongoose.Schema(
-  {
+const activeStatusSchema = new mongoose.Schema({
+
+    activeStatusId: {
+      type: String,
+      required: true,
+      unique: true,
+      default: () => 'AST_' + ulid(),
+    },
     activeStatusName: {
       type: String,
       required: true,

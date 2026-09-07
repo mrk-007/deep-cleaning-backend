@@ -1,19 +1,26 @@
 const mongoose = require('mongoose');
+const { ulid } = require('ulid');
 
-const roleSchema = new mongoose.Schema(
-  {
+const roleSchema = new mongoose.Schema({
+
+    roleId: {
+      type: String,
+      required: true,
+      unique: true,
+      default: () => 'ROL_' + ulid(),
+    },
     roleName: {
       type: String,
       required: true,
       trim: true,
     },
-    permissionReferences: [
+    permissionIds: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Permission',
       },
     ],
-    activeStatusReference: {
+    activeStatusId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'ActiveStatus',
       default: null,

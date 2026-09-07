@@ -39,10 +39,10 @@ exports.createPermission = async (req, res) => {
     const savedPermission = await permission.save();
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'create',
       collectionName: 'permissions',
-      recordReference: savedPermission._id,
+      recordId: savedPermission._id,
     });
 
     res.status(201).json(savedPermission);
@@ -66,10 +66,10 @@ exports.updatePermission = async (req, res) => {
     }
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'update',
       collectionName: 'permissions',
-      recordReference: permission._id,
+      recordId: permission._id,
     });
 
     res.status(200).json(permission);
@@ -87,10 +87,10 @@ exports.deletePermission = async (req, res) => {
     }
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'delete',
       collectionName: 'permissions',
-      recordReference: permission._id,
+      recordId: permission._id,
     });
 
     res.status(200).json({ message: 'Permission deleted successfully' });

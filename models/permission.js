@@ -1,7 +1,14 @@
 const mongoose = require('mongoose');
+const { ulid } = require('ulid');
 
-const permissionSchema = new mongoose.Schema(
-  {
+const permissionSchema = new mongoose.Schema({
+
+    permissionId: {
+      type: String,
+      required: true,
+      unique: true,
+      default: () => 'PRM_' + ulid(),
+    },
     permissionName: {
       type: String,
       required: true,

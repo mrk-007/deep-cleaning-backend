@@ -1,13 +1,20 @@
 const mongoose = require('mongoose');
+const { ulid } = require('ulid');
 
-const pricingSchema = new mongoose.Schema(
-  {
-    serviceDurationReference: {
+const pricingSchema = new mongoose.Schema({
+
+    pricingId: {
+      type: String,
+      required: true,
+      unique: true,
+      default: () => 'PRC_' + ulid(),
+    },
+    serviceDurationId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'ServiceDuration',
       required: true,
     },
-    bathroomCountReference: {
+    bathroomCountId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'BathroomCount',
       required: true,
@@ -24,7 +31,7 @@ const pricingSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
-    activeStatusReference: {
+    activeStatusId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'ActiveStatus',
       default: null,

@@ -1,7 +1,14 @@
 const mongoose = require('mongoose');
+const { ulid } = require('ulid');
 
-const userSchema = new mongoose.Schema(
-  {
+const userSchema = new mongoose.Schema({
+
+    userId: {
+      type: String,
+      required: true,
+      unique: true,
+      default: () => 'USR_' + ulid(),
+    },
     userName: {
       type: String,
       required: true,
@@ -18,12 +25,12 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    roleReference: {
+    roleId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Role',
       default: null,
     },
-    activeStatusReference: {
+    activeStatusId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'ActiveStatus',
       default: null,

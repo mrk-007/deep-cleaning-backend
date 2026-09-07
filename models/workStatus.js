@@ -1,13 +1,20 @@
 const mongoose = require('mongoose');
+const { ulid } = require('ulid');
 
-const workStatusSchema = new mongoose.Schema(
-  {
+const workStatusSchema = new mongoose.Schema({
+
+    workStatusId: {
+      type: String,
+      required: true,
+      unique: true,
+      default: () => 'WST_' + ulid(),
+    },
     statusName: {
       type: String,
       required: true,
       trim: true,
     },
-    activeStatusReference: {
+    activeStatusId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'ActiveStatus',
       default: null,

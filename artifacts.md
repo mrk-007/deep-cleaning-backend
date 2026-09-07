@@ -183,8 +183,66 @@ erDiagram
         ObjectId _id PK
         ObjectId userReference FK
         string operation
-        string collectionName
         ObjectId recordReference
+        mixed details
+        mixed previousValue
+        mixed newValue
+        date createdAt
+    }
+
+    USER_LOG {
+        ObjectId _id PK
+        ObjectId userReference FK
+        string operation
+        ObjectId recordReference FK
+        mixed details
+        mixed previousValue
+        mixed newValue
+        date createdAt
+    }
+
+    ROLE_LOG {
+        ObjectId _id PK
+        ObjectId userReference FK
+        string operation
+        ObjectId recordReference FK
+        mixed details
+        mixed previousValue
+        mixed newValue
+        date createdAt
+    }
+
+    CUSTOMER_LOG {
+        ObjectId _id PK
+        ObjectId userReference FK
+        string operation
+        ObjectId recordReference FK
+        mixed details
+        mixed previousValue
+        mixed newValue
+        date createdAt
+    }
+
+    BOOKING_LOG {
+        ObjectId _id PK
+        ObjectId userReference FK
+        string operation
+        ObjectId recordReference FK
+        mixed details
+        mixed previousValue
+        mixed newValue
+        date createdAt
+    }
+
+    SUBSCRIPTION_LOG {
+        ObjectId _id PK
+        ObjectId userReference FK
+        string operation
+        ObjectId recordReference FK
+        mixed details
+        mixed previousValue
+        mixed newValue
+        date createdAt
     }
 ```
 
@@ -678,6 +736,34 @@ const loadBookingFormData = async (activeStatusId) => {
 
 ---
 
+### 3.2.1 Dynamic Time Slot Availability for Booking Form
+When the customer or telecaller selects a **Booking Date** and **Bathroom Count**, fetch the dynamically calculated available slots for that specific date:
+
+```javascript
+// Fetch active slots for a specific date and bathroom count (excludes already booked slots)
+const loadAvailableSlots = async (bookingDate, bathroomCount = 1) => {
+  const response = await api.get('/slots/availability', {
+    params: {
+      bookingDate, // e.g. "2026-09-10"
+      bathroomCount, // e.g. 2
+      bufferDuration: 30 // optional override in minutes
+    }
+  });
+
+  // response.data:
+  // {
+  //   bookingDate: "2026-09-10",
+  //   slots: [
+  //     { startTime: "09:00", endTime: "11:30", status: "active" },
+  //     { startTime: "11:30", endTime: "14:00", status: "active" }, ...
+  //   ]
+  // }
+  return response.data.slots;
+};
+```
+
+---
+
 ### 3.3 Customer Search & Auto-Complete
 As the telecaller types a customer phone number or name:
 - **Endpoint**: `GET /api/customers?search=9840`
@@ -761,6 +847,7 @@ const toggleAccountStatus = async (accountId, newActiveStatusId) => {
 | **Frequencies**| Frequencies (Weekly, Monthly)| `GET /api/frequencies`, `POST /api/frequencies`| `/api/service-frequencies` |
 | **Subscriptions**| Subscription plans (3m, 6m)| `GET /api/subscriptions`, `POST /api/subscriptions` | `/api/subscription-types` |
 | **Time Slots** | Operating slots (09:00 - 11:00)| `GET /api/slots`, `POST /api/slots` | `/api/time-slots`, `/api/timeslots` |
+| **Dynamic Availability** | Date & bathroom-based active slots | `GET /api/slots/availability?bookingDate=...` | `/api/time-slots/availability`, `/api/bookings/availability` |
 | **Booking Dates**| Normalized service dates | `GET /api/dates`, `POST /api/dates` | `/api/booking-dates`, `/api/date` |
 | **Payments** | Payment methods (UPI, Card) | `GET /api/payments`, `POST /api/payments` | `/api/payment-methods`, `/api/payment-method` |
 | **Accounts** | Bank accounts (HDFC, IOB) | `GET /api/accounts`, `POST /api/accounts` | `/api/payment-accounts`, `/api/payment-account` |

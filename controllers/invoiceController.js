@@ -7,12 +7,12 @@ exports.getAllInvoices = async (req, res) => {
     const { customerId, bookingId } = req.query;
     const filter = {};
 
-    if (customerId) filter.customerReference = customerId;
-    if (bookingId) filter.bookingReference = bookingId;
+    if (customerId) filter.customerId = customerId;
+    if (bookingId) filter.bookingId = bookingId;
 
     const invoices = await Invoice.find(filter)
-      .populate('customerReference')
-      .populate('bookingReference')
+      .populate('customerId')
+      .populate('bookingId')
       .sort({ createdAt: -1 });
 
     res.status(200).json(invoices);
@@ -25,8 +25,8 @@ exports.getAllInvoices = async (req, res) => {
 exports.getInvoiceById = async (req, res) => {
   try {
     const invoice = await Invoice.findById(req.params.id)
-      .populate('customerReference')
-      .populate('bookingReference');
+      .populate('customerId')
+      .populate('bookingId');
 
     if (!invoice) {
       return res.status(404).json({ message: 'Invoice not found' });
@@ -40,9 +40,9 @@ exports.getInvoiceById = async (req, res) => {
 // Get invoice by booking ID
 exports.getInvoiceByBookingId = async (req, res) => {
   try {
-    const invoice = await Invoice.findOne({ bookingReference: req.params.bookingId })
-      .populate('customerReference')
-      .populate('bookingReference');
+    const invoice = await Invoice.findOne({ bookingId: req.params.bookingId })
+      .populate('customerId')
+      .populate('bookingId');
 
     if (!invoice) {
       return res.status(404).json({ message: 'Invoice not found for this booking' });
@@ -56,17 +56,17 @@ exports.getInvoiceByBookingId = async (req, res) => {
 // Create an invoice manually (if needed)
 exports.createInvoice = async (req, res) => {
   try {
-    const { invoiceNumber, customerReference, bookingReference, amount } = req.body;
-    if (!invoiceNumber || !customerReference || !bookingReference || amount === undefined) {
+    const { invoiceNumber, customerId, bookingId, amount } = req.body;
+    if (!invoiceNumber || !customerId || !bookingId || amount === undefined) {
       return res.status(400).json({
-        message: 'invoiceNumber, customerReference, bookingReference, and amount are required',
+        message: 'invoiceNumber, customerId, bookingId, and amount are required',
       });
     }
 
     const invoice = new Invoice({
       invoiceNumber,
-      customerReference,
-      bookingReference,
+      customerId,
+      bookingId,
       amount,
       createdBy: req.user ? req.user.userId : null,
     });
@@ -74,10 +74,10 @@ exports.createInvoice = async (req, res) => {
     const savedInvoice = await invoice.save();
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'create',
       collectionName: 'invoices',
-      recordReference: savedInvoice._id,
+      recordId: savedInvoice._id,
     });
 
     res.status(201).json(savedInvoice);
@@ -95,10 +95,10 @@ exports.deleteInvoice = async (req, res) => {
     }
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'delete',
       collectionName: 'invoices',
-      recordReference: invoice._id,
+      recordId: invoice._id,
     });
 
     res.status(200).json({ message: 'Invoice deleted successfully' });

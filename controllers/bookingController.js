@@ -3,6 +3,8 @@ const Invoice = require('../models/invoice');
 const Counter = require('../models/counter');
 const AuditLog = require('../models/auditLog');
 const BookingDate = require('../models/bookingDate');
+const WorkStatus = require('../models/workStatus');
+const BookingLog = require('../models/auditlogs/bookingLog');
 
 // Helper to format date string YYYYMMDD
 const getDateKey = (date = new Date()) => {
@@ -18,8 +20,8 @@ exports.getAllBookings = async (req, res) => {
     const { customerId, workStatusId, startDate, endDate } = req.query;
     const filter = {};
 
-    if (customerId) filter.customerReference = customerId;
-    if (workStatusId) filter.workStatusReference = workStatusId;
+    if (customerId) filter.customerId = customerId;
+    if (workStatusId) filter.workStatusId = workStatusId;
     if (startDate || endDate) {
       filter.startDateTime = {};
       if (startDate) filter.startDateTime.$gte = new Date(startDate);
@@ -27,17 +29,17 @@ exports.getAllBookings = async (req, res) => {
     }
 
     const bookings = await Booking.find(filter)
-      .populate('customerReference')
-      .populate('bathroomCountReference')
-      .populate('pricingReference')
-      .populate('serviceDurationReference')
-      .populate('serviceFrequencyReference')
-      .populate('subscriptionTypeReference')
-      .populate('timeSlotReference')
-      .populate('bookingDateReference')
-      .populate('paymentMethodReference')
-      .populate('accountReference')
-      .populate('workStatusReference')
+      .populate('customerId')
+      .populate('bathroomCountId')
+      .populate('pricingId')
+      .populate('serviceDurationId')
+      .populate('serviceFrequencyId')
+      .populate('subscriptionTypeId')
+      .populate('timeSlotId')
+      .populate('bookingDateId')
+      .populate('paymentMethodId')
+      .populate('paymentAccountId')
+      .populate('workStatusId')
       .sort({ startDateTime: -1 });
 
     res.status(200).json(bookings);
@@ -50,23 +52,23 @@ exports.getAllBookings = async (req, res) => {
 exports.getBookingById = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
-      .populate('customerReference')
-      .populate('bathroomCountReference')
-      .populate('pricingReference')
-      .populate('serviceDurationReference')
-      .populate('serviceFrequencyReference')
-      .populate('subscriptionTypeReference')
-      .populate('timeSlotReference')
-      .populate('bookingDateReference')
-      .populate('paymentMethodReference')
-      .populate('accountReference')
-      .populate('workStatusReference');
+      .populate('customerId')
+      .populate('bathroomCountId')
+      .populate('pricingId')
+      .populate('serviceDurationId')
+      .populate('serviceFrequencyId')
+      .populate('subscriptionTypeId')
+      .populate('timeSlotId')
+      .populate('bookingDateId')
+      .populate('paymentMethodId')
+      .populate('paymentAccountId')
+      .populate('workStatusId');
 
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    const invoice = await Invoice.findOne({ bookingReference: booking._id });
+    const invoice = await Invoice.findOne({ bookingId: booking._id });
 
     res.status(200).json({
       booking,
@@ -81,36 +83,36 @@ exports.getBookingById = async (req, res) => {
 exports.createBooking = async (req, res) => {
   try {
     const {
-      customerReference,
-      bathroomCountReference,
-      pricingReference,
-      serviceDurationReference,
-      serviceFrequencyReference,
-      subscriptionTypeReference,
-      timeSlotReference,
-      bookingDateReference,
+      customerId,
+      bathroomCountId,
+      pricingId,
+      serviceDurationId,
+      serviceFrequencyId,
+      subscriptionTypeId,
+      timeSlotId,
+      bookingDateId,
       startDateTime,
       endDateTime,
-      paymentMethodReference,
-      accountReference,
+      paymentMethodId,
+      paymentAccountId,
       transactionId,
       amount,
-      workStatusReference,
+      workStatusId,
     } = req.body;
 
-    if (!customerReference || (!startDateTime && !bookingDateReference) || amount === undefined || amount === null) {
+    if (!customerId || (!startDateTime && !bookingDateId) || amount === undefined || amount === null) {
       return res.status(400).json({
-        message: 'customerReference, (startDateTime or bookingDateReference), and amount are required',
+        message: 'customerId, (startDateTime or bookingDateId), and amount are required',
       });
     }
 
     const userId = req.user ? req.user.userId : null;
 
-    let resolvedBookingDateRef = bookingDateReference || null;
+    let resolvedBookingDateRef = bookingDateId || null;
     let resolvedStartDateTime = startDateTime || null;
     let resolvedEndDateTime = endDateTime || null;
 
-    // If startDateTime is provided but no bookingDateReference, auto-create BookingDate
+    // If startDateTime is provided but no bookingDateId, auto-create BookingDate
     if (!resolvedBookingDateRef && startDateTime) {
       const newBookingDate = new BookingDate({
         startDateTime,
@@ -127,23 +129,61 @@ exports.createBooking = async (req, res) => {
       }
     }
 
+    // Prevent overlapping bookings: check for conflict on this date & time slot
+    if (resolvedStartDateTime) {
+      const targetStart = new Date(resolvedStartDateTime);
+      const targetEnd = resolvedEndDateTime
+        ? new Date(resolvedEndDateTime)
+        : new Date(targetStart.getTime() + 60 * 60 * 1000);
+
+      const dayStart = new Date(targetStart);
+      dayStart.setUTCHours(0, 0, 0, 0);
+      const dayEnd = new Date(targetStart);
+      dayEnd.setUTCHours(23, 59, 59, 999);
+
+      const existingBookings = await Booking.find({
+        startDateTime: { $gte: dayStart, $lte: dayEnd },
+      }).populate('workStatusId');
+
+      const isConflicting = existingBookings.some((b) => {
+        if (b.workStatusId && b.workStatusId.statusName && b.workStatusId.statusName.toLowerCase() === 'cancelled') {
+          return false;
+        }
+        if (timeSlotId && b.timeSlotId && String(b.timeSlotId) === String(timeSlotId)) {
+          return true;
+        }
+        if (b.startDateTime) {
+          const bStart = new Date(b.startDateTime);
+          const bEnd = b.endDateTime ? new Date(b.endDateTime) : new Date(bStart.getTime() + 60 * 60 * 1000);
+          return targetStart < bEnd && targetEnd > bStart;
+        }
+        return false;
+      });
+
+      if (isConflicting) {
+        return res.status(409).json({
+          message: 'The selected date and time slot is already booked. Please choose another slot.',
+        });
+      }
+    }
+
     // 1. Create booking record
     const booking = new Booking({
-      customerReference,
-      bathroomCountReference: bathroomCountReference || null,
-      pricingReference: pricingReference || null,
-      serviceDurationReference: serviceDurationReference || null,
-      serviceFrequencyReference: serviceFrequencyReference || null,
-      subscriptionTypeReference: subscriptionTypeReference || null,
-      timeSlotReference: timeSlotReference || null,
-      bookingDateReference: resolvedBookingDateRef,
+      customerId,
+      bathroomCountId: bathroomCountId || null,
+      pricingId: pricingId || null,
+      serviceDurationId: serviceDurationId || null,
+      serviceFrequencyId: serviceFrequencyId || null,
+      subscriptionTypeId: subscriptionTypeId || null,
+      timeSlotId: timeSlotId || null,
+      bookingDateId: resolvedBookingDateRef,
       startDateTime: resolvedStartDateTime,
       endDateTime: resolvedEndDateTime,
-      paymentMethodReference: paymentMethodReference || null,
-      accountReference: accountReference || null,
+      paymentMethodId: paymentMethodId || null,
+      paymentAccountId: paymentAccountId || null,
       transactionId: transactionId || '',
       amount,
-      workStatusReference: workStatusReference || null,
+      workStatusId: workStatusId || null,
       createdBy: userId,
     });
 
@@ -165,29 +205,26 @@ exports.createBooking = async (req, res) => {
     // 3. Create invoice record
     const invoice = new Invoice({
       invoiceNumber,
-      customerReference,
-      bookingReference: savedBooking._id,
+      customerId,
+      bookingId: savedBooking._id,
       amount: savedBooking.amount,
       createdBy: userId,
     });
 
     const savedInvoice = await invoice.save();
 
-    // 4. Record audit logs
-    await AuditLog.create([
-      {
-        userReference: userId,
-        operation: 'create',
-        collectionName: 'bookings',
-        recordReference: savedBooking._id,
+    // 4. Record audit log
+    await BookingLog.create({
+      operation: 'CREATE',
+      actionBy: userId,
+      recordId: savedBooking._id,
+      details: {
+        action: 'Booking created and invoice generated',
+        invoiceNumber: savedInvoice.invoiceNumber,
+        amount: savedBooking.amount,
       },
-      {
-        userReference: userId,
-        operation: 'create',
-        collectionName: 'invoices',
-        recordReference: savedInvoice._id,
-      },
-    ]);
+      newValue: savedBooking.toObject(),
+    });
 
     res.status(201).json({
       message: 'Booking created and invoice generated successfully',
@@ -202,31 +239,34 @@ exports.createBooking = async (req, res) => {
 // Update a booking
 exports.updateBooking = async (req, res) => {
   try {
+    const previousBooking = await Booking.findById(req.params.id);
+    if (!previousBooking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
     const booking = await Booking.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
     })
-      .populate('customerReference')
-      .populate('bathroomCountReference')
-      .populate('pricingReference')
-      .populate('serviceDurationReference')
-      .populate('serviceFrequencyReference')
-      .populate('subscriptionTypeReference')
-      .populate('timeSlotReference')
-      .populate('bookingDateReference')
-      .populate('paymentMethodReference')
-      .populate('accountReference')
-      .populate('workStatusReference');
+      .populate('customerId')
+      .populate('bathroomCountId')
+      .populate('pricingId')
+      .populate('serviceDurationId')
+      .populate('serviceFrequencyId')
+      .populate('subscriptionTypeId')
+      .populate('timeSlotId')
+      .populate('bookingDateId')
+      .populate('paymentMethodId')
+      .populate('paymentAccountId')
+      .populate('workStatusId');
 
-    if (!booking) {
-      return res.status(404).json({ message: 'Booking not found' });
-    }
-
-    await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
-      operation: 'update',
-      collectionName: 'bookings',
-      recordReference: booking._id,
+    await BookingLog.create({
+      operation: 'UPDATE',
+      actionBy: req.user ? req.user.userId : null,
+      recordId: booking._id,
+      details: { updatedFields: Object.keys(req.body) },
+      previousValue: previousBooking.toObject(),
+      newValue: booking.toObject(),
     });
 
     res.status(200).json(booking);
@@ -244,13 +284,15 @@ exports.deleteBooking = async (req, res) => {
     }
 
     // Also remove associated invoice
-    await Invoice.findOneAndDelete({ bookingReference: booking._id });
+    await Invoice.findOneAndDelete({ bookingId: booking._id });
 
-    await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
-      operation: 'delete',
-      collectionName: 'bookings',
-      recordReference: booking._id,
+    await BookingLog.create({
+      operation: 'DELETE',
+      actionBy: req.user ? req.user.userId : null,
+      recordId: booking._id,
+      details: { action: 'Booking and associated invoice deleted' },
+      previousValue: booking.toObject(),
+      newValue: null,
     });
 
     res.status(200).json({ message: 'Booking and associated invoice deleted successfully' });

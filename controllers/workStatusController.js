@@ -6,10 +6,10 @@ exports.getAllWorkStatuses = async (req, res) => {
   try {
     const filter = {};
     if (req.query.activeStatusId) {
-      filter.activeStatusReference = req.query.activeStatusId;
+      filter.activeStatusId = req.query.activeStatusId;
     }
     const statuses = await WorkStatus.find(filter)
-      .populate('activeStatusReference')
+      .populate('activeStatusId')
       .sort({ createdAt: -1 });
     res.status(200).json(statuses);
   } catch (error) {
@@ -20,7 +20,7 @@ exports.getAllWorkStatuses = async (req, res) => {
 // Get single work status by ID
 exports.getWorkStatusById = async (req, res) => {
   try {
-    const status = await WorkStatus.findById(req.params.id).populate('activeStatusReference');
+    const status = await WorkStatus.findById(req.params.id).populate('activeStatusId');
     if (!status) {
       return res.status(404).json({ message: 'Work status not found' });
     }
@@ -33,23 +33,23 @@ exports.getWorkStatusById = async (req, res) => {
 // Create a work status
 exports.createWorkStatus = async (req, res) => {
   try {
-    const { statusName, activeStatusReference } = req.body;
+    const { statusName, activeStatusId } = req.body;
     if (!statusName) {
       return res.status(400).json({ message: 'statusName is required' });
     }
 
     const status = new WorkStatus({
       statusName,
-      activeStatusReference: activeStatusReference || null,
+      activeStatusId: activeStatusId || null,
       createdBy: req.user ? req.user.userId : null,
     });
     const savedStatus = await status.save();
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'create',
       collectionName: 'workStatuses',
-      recordReference: savedStatus._id,
+      recordId: savedStatus._id,
     });
 
     res.status(201).json(savedStatus);
@@ -58,29 +58,29 @@ exports.createWorkStatus = async (req, res) => {
   }
 };
 
-// Update a work status (statusName or activeStatusReference)
+// Update a work status (statusName or activeStatusId)
 exports.updateWorkStatus = async (req, res) => {
   try {
-    const { statusName, activeStatusReference } = req.body;
+    const { statusName, activeStatusId } = req.body;
     const updateData = {};
     if (statusName !== undefined) updateData.statusName = statusName;
-    if (activeStatusReference !== undefined) updateData.activeStatusReference = activeStatusReference;
+    if (activeStatusId !== undefined) updateData.activeStatusId = activeStatusId;
 
     const status = await WorkStatus.findByIdAndUpdate(
       req.params.id,
       updateData,
       { new: true, runValidators: true }
-    ).populate('activeStatusReference');
+    ).populate('activeStatusId');
 
     if (!status) {
       return res.status(404).json({ message: 'Work status not found' });
     }
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'update',
       collectionName: 'workStatuses',
-      recordReference: status._id,
+      recordId: status._id,
     });
 
     res.status(200).json(status);
@@ -98,10 +98,10 @@ exports.deleteWorkStatus = async (req, res) => {
     }
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'delete',
       collectionName: 'workStatuses',
-      recordReference: status._id,
+      recordId: status._id,
     });
 
     res.status(200).json({ message: 'Work status deleted successfully' });

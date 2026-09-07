@@ -6,10 +6,10 @@ exports.getAllServiceFrequencies = async (req, res) => {
   try {
     const filter = {};
     if (req.query.activeStatusId) {
-      filter.activeStatusReference = req.query.activeStatusId;
+      filter.activeStatusId = req.query.activeStatusId;
     }
     const frequencies = await ServiceFrequency.find(filter)
-      .populate('activeStatusReference')
+      .populate('activeStatusId')
       .sort({ createdAt: -1 });
     res.status(200).json(frequencies);
   } catch (error) {
@@ -20,7 +20,7 @@ exports.getAllServiceFrequencies = async (req, res) => {
 // Get single service frequency by ID
 exports.getServiceFrequencyById = async (req, res) => {
   try {
-    const frequency = await ServiceFrequency.findById(req.params.id).populate('activeStatusReference');
+    const frequency = await ServiceFrequency.findById(req.params.id).populate('activeStatusId');
     if (!frequency) {
       return res.status(404).json({ message: 'Service frequency not found' });
     }
@@ -33,23 +33,23 @@ exports.getServiceFrequencyById = async (req, res) => {
 // Create a service frequency
 exports.createServiceFrequency = async (req, res) => {
   try {
-    const { frequencyName, activeStatusReference } = req.body;
+    const { frequencyName, activeStatusId } = req.body;
     if (!frequencyName) {
       return res.status(400).json({ message: 'frequencyName is required' });
     }
 
     const frequency = new ServiceFrequency({
       frequencyName,
-      activeStatusReference: activeStatusReference || null,
+      activeStatusId: activeStatusId || null,
       createdBy: req.user ? req.user.userId : null,
     });
     const savedFrequency = await frequency.save();
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'create',
       collectionName: 'serviceFrequencies',
-      recordReference: savedFrequency._id,
+      recordId: savedFrequency._id,
     });
 
     res.status(201).json(savedFrequency);
@@ -58,29 +58,29 @@ exports.createServiceFrequency = async (req, res) => {
   }
 };
 
-// Update a service frequency (frequencyName or activeStatusReference)
+// Update a service frequency (frequencyName or activeStatusId)
 exports.updateServiceFrequency = async (req, res) => {
   try {
-    const { frequencyName, activeStatusReference } = req.body;
+    const { frequencyName, activeStatusId } = req.body;
     const updateData = {};
     if (frequencyName !== undefined) updateData.frequencyName = frequencyName;
-    if (activeStatusReference !== undefined) updateData.activeStatusReference = activeStatusReference;
+    if (activeStatusId !== undefined) updateData.activeStatusId = activeStatusId;
 
     const frequency = await ServiceFrequency.findByIdAndUpdate(
       req.params.id,
       updateData,
       { new: true, runValidators: true }
-    ).populate('activeStatusReference');
+    ).populate('activeStatusId');
 
     if (!frequency) {
       return res.status(404).json({ message: 'Service frequency not found' });
     }
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'update',
       collectionName: 'serviceFrequencies',
-      recordReference: frequency._id,
+      recordId: frequency._id,
     });
 
     res.status(200).json(frequency);
@@ -98,10 +98,10 @@ exports.deleteServiceFrequency = async (req, res) => {
     }
 
     await AuditLog.create({
-      userReference: req.user ? req.user.userId : null,
+      actionBy: req.user ? req.user.userId : null,
       operation: 'delete',
       collectionName: 'serviceFrequencies',
-      recordReference: frequency._id,
+      recordId: frequency._id,
     });
 
     res.status(200).json({ message: 'Service frequency deleted successfully' });
